@@ -293,24 +293,89 @@ def planning_animation(ox, oy, resolution):  # pragma: no cover
         plt.pause(0.1)
         plt.close()
 
+# One-D
+def gk_1D(k,x,L):
+    return np.cos((k + 0) * (x) * np.pi / L) # Discrete cosine transform II
+    # return onp.cos(k * x * onp.pi / L) # Fourier transform (cosine part only)
+
+# Two-D
+def gk_2D(ks, xs, Ls):
+    prod = 1
+    for k, x, L in zip(ks, xs, Ls):
+        prod *= gk_1D(k,x,L)
+    return prod
+
+def get_cks_2d(Xs,Ys,Ls,res):
+    '''
+    2-Dimensional discrete cosine transform
+    Inputs:
+        Xs: list of coordinates [[x1_1,x2_1], [x1_2,x2_2], ... [x1_n,x2_n]]
+        Ys: list of values [y1, y_2, ... y_n]
+    '''
+    c_ks = np.zeros(res)
+    for k1 in range(res[0]):
+        for k2 in range(res[1]):
+            for i in range(len(Xs)):
+                c_ks[k1][k2] += gk_2D([k1,k2],[Xs[i], Ys[i]],Ls)
+            if k1 != 0:
+                c_ks[k1][k2] *= 2
+            if k2 != 0:
+                c_ks[k1][k2] *= 2
+    return c_ks / len(Xs)
+
+def erg_metric(cks, phiks):
+    E = 0
+    for k1 in range(cks.shape[0]):
+        for k2 in range(cks.shape[1]):
+            lam = (1+(k1**2+k2**2))**(-3/2)
+            E += lam * (cks[k1, k2] - phiks[k1, k2]) ** 2
+    return E
+
+def get_distance(px, py):
+    dist = 0
+    for px1, px2, py1, py2 in zip(px[:-1], px[1:], py[:-1], py[1:]):
+        dist += np.sqrt((px1-px2)**2+(py1-py2)**2)
+    return dist
 
 def main():  # pragma: no cover
     print("start!!")
 
-    ox = [0.0, 20.0, 50.0, 100.0, 130.0, 40.0, 0.0]
-    oy = [0.0, -20.0, 0.0, 30.0, 60.0, 80.0, 0.0]
-    resolution = 5.0
-    planning_animation(ox, oy, resolution)
+    # ox = [0.0, 20.0, 50.0, 100.0, 130.0, 40.0, 0.0]
+    # oy = [0.0, -20.0, 0.0, 30.0, 60.0, 80.0, 0.0]
+    ox = [0.0, 1.0, 1.0, 0.0, 0.0]
+    oy = [0.0, 0.0, 1.0, 1.0, 0.0]
+    # resolution = 0.01
+    # px, py = planning(ox, oy, resolution)
+    # plt.plot(px, py, '-or')
+    # plt.plot(ox, oy, '-ok')
+    # cks = get_cks_2d(px, py, [1,1],[6,6])
+    phiks = np.zeros((6, 6))
+    phiks[0,0] = 1
+    # print(erg_metric(cks, phiks))
+    # print(get_distance(px, py))
+    distances = []
+    ergodic_metrics = []
+    for resolution in [0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]:
+        px, py = planning(ox, oy, resolution)
+        distances.append(get_distance(px, py))
+        cks = get_cks_2d(px, py, [1,1],[6,6])
+        ergodic_metrics.append(erg_metric(cks, phiks))
+    plt.loglog(ergodic_metrics, distances, 'ok')
+    plt.ylabel("Path Distance")
+    plt.xlabel("Ergodic Metric")
+    plt.title("Lawnomower Trajectories")
+    plt.show()
+    # planning_animation(ox, oy, resolution)
 
-    ox = [0.0, 50.0, 50.0, 0.0, 0.0]
-    oy = [0.0, 0.0, 30.0, 30.0, 0.0]
-    resolution = 1.3
-    planning_animation(ox, oy, resolution)
+    # ox = [0.0, 50.0, 50.0, 0.0, 0.0]
+    # oy = [0.0, 0.0, 30.0, 30.0, 0.0]
+    # resolution = 1.3
+    # planning_animation(ox, oy, resolution)
 
-    ox = [0.0, 20.0, 50.0, 200.0, 130.0, 40.0, 0.0]
-    oy = [0.0, -80.0, 0.0, 30.0, 60.0, 80.0, 0.0]
-    resolution = 5.0
-    planning_animation(ox, oy, resolution)
+    # ox = [0.0, 20.0, 50.0, 200.0, 130.0, 40.0, 0.0]
+    # oy = [0.0, -80.0, 0.0, 30.0, 60.0, 80.0, 0.0]
+    # resolution = 5.0
+    # planning_animation(ox, oy, resolution)
 
     if do_animation:
         plt.show()
