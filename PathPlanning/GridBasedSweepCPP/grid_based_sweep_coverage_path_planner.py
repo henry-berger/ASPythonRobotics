@@ -355,11 +355,18 @@ def main():  # pragma: no cover
     # print(get_distance(px, py))
     distances = []
     ergodic_metrics = []
-    for resolution in [0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]:
+    plt.figure()
+    for i, resolution in enumerate([0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]):
         px, py = planning(ox, oy, resolution)
         distances.append(get_distance(px, py))
         cks = get_cks_2d(px, py, [1,1],[6,6])
         ergodic_metrics.append(erg_metric(cks, phiks))
+        plt.subplot(2,4,i+1)
+        plt.plot(px, py)
+        plt.xlim([0,1])
+        plt.ylim([0,1])
+        plt.title(f"Resolution {resolution}")
+    plt.show()
     plt.loglog(ergodic_metrics, distances, 'ok')
     plt.ylabel("Path Distance")
     plt.xlabel("Ergodic Metric")
