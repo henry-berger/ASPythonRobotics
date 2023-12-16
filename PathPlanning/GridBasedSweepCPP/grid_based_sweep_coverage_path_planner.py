@@ -342,8 +342,8 @@ def main():  # pragma: no cover
 
     # ox = [0.0, 20.0, 50.0, 100.0, 130.0, 40.0, 0.0]
     # oy = [0.0, -20.0, 0.0, 30.0, 60.0, 80.0, 0.0]
-    ox = [0.0, 1.0, 1.0, 0.0, 0.0]
-    oy = [0.0, 0.0, 1.0, 1.0, 0.0]
+    ox = [0.0, 3.5, 3.5, 0.0, 0.0]
+    oy = [0.0, 0.0, 4.5, 4.5, 0.0]
     # resolution = 0.01
     # px, py = planning(ox, oy, resolution)
     # plt.plot(px, py, '-or')
@@ -355,23 +355,31 @@ def main():  # pragma: no cover
     # print(get_distance(px, py))
     distances = []
     ergodic_metrics = []
-    plt.figure()
-    for i, resolution in enumerate([0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3]):
+    plt.figure(figsize=(20, 20))
+    resolutions = np.array([0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3])
+    for i, resolution in enumerate(resolutions * 3):
         px, py = planning(ox, oy, resolution)
         distances.append(get_distance(px, py))
-        cks = get_cks_2d(px, py, [1,1],[6,6])
+        cks = get_cks_2d(px, py, [3.5,4.5],[6,6])
         ergodic_metrics.append(erg_metric(cks, phiks))
         plt.subplot(2,4,i+1)
         plt.plot(px, py)
-        plt.xlim([0,1])
-        plt.ylim([0,1])
+        plt.xlim([0,3.5])
+        plt.ylim([0,4.5])
         plt.title(f"Resolution {resolution}")
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(str(pathlib.Path(__file__).parent) + "/resolution.png")
+
+    plt.figure(figsize=(10, 20))
     plt.loglog(ergodic_metrics, distances, 'ok')
     plt.ylabel("Path Distance")
     plt.xlabel("Ergodic Metric")
     plt.title("Lawnomower Trajectories")
-    plt.show()
+    plt.tight_layout()
+    plt.savefig(str(pathlib.Path(__file__).parent) + "/Metrics.png")
+    print("Ergodicities and Distances:")
+    for e, d in zip(ergodic_metrics, distances):
+        print(f"{e:.7f}, {d:.4f}")
     # planning_animation(ox, oy, resolution)
 
     # ox = [0.0, 50.0, 50.0, 0.0, 0.0]
@@ -390,4 +398,5 @@ def main():  # pragma: no cover
 
 
 if __name__ == '__main__':
+    # print(__file__)
     main()
