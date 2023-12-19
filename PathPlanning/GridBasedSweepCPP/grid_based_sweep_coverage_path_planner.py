@@ -14,6 +14,10 @@ sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
 
 from utils.angle import rot_mat_2d
 from Mapping.grid_map_lib.grid_map_lib import GridMap, FloatGrid
+import fourier_utils as fourier
+import ergodic_metric as em
+import jax.numpy as jnp
+from jax import vmap
 
 do_animation = True
 
@@ -295,7 +299,11 @@ def planning_animation(ox, oy, resolution):  # pragma: no cover
 
 # One-D
 def gk_1D(k,x,L):
-    return np.cos((k + 0) * (x) * np.pi / L) # Discrete cosine transform II
+    if k == 0:
+        return np.cos((k + 0) * (x) * np.pi / L) # Discrete cosine transform II
+    else:
+        return 2*np.cos((k + 0) * (x) * np.pi / L) # Discrete cosine transform II
+
     # return onp.cos(k * x * onp.pi / L) # Fourier transform (cosine part only)
 
 # Two-D
@@ -332,10 +340,29 @@ def erg_metric(cks, phiks):
     return E
 
 def get_distance(px, py):
-    dist = 0
-    for px1, px2, py1, py2 in zip(px[:-1], px[1:], py[:-1], py[1:]):
-        dist += np.sqrt((px1-px2)**2+(py1-py2)**2)
-    return dist
+    def dist_helper(x1, x2, y1, y2):
+        return jnp.linalg.norm(jnp.array([x1-x2, y1-y2]))
+    px = np.array(px)
+    py = np.array(py)
+    dists = vmap(dist_helper)(px[:-1], px[1:], py[:-1], py[1:])
+    print(f"{jnp.min(dists)} - {jnp.max(dists)}")
+    return jnp.sum(dists)
+
+def emap(x):
+    return jnp.array([x[0]/3.5, x[1]/4.5])
+
+basis = fourier.BasisFunc(n_basis=[8,8], emap=emap)
+erg_metr = em.ErgodicMetric(basis)
+
+def get_erg_metr(px, py):
+    phiks = np.zeros((8, 8))
+    phiks[0,0] = 1
+    phiks = phiks.ravel()
+
+    pts = np.vstack((px, py)).T
+    # print(pts.shape)
+    ck = fourier.get_ck(pts, basis, tf=pts.shape[0]/10, dt=0.1)
+    return erg_metr(ck, phiks)
 
 def main():  # pragma: no cover
     print("start!!")
@@ -355,23 +382,30 @@ def main():  # pragma: no cover
     # print(get_distance(px, py))
     distances = []
     ergodic_metrics = []
-    plt.figure(figsize=(20, 20))
+    ergodic_metrics_2 = []
+    plt.figure(figsize=(20, 10))
     resolutions = np.array([0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3])
+    # resolutions = np.array([0.1, 0.15, 0.2, 0.3])
     for i, resolution in enumerate(resolutions * 3):
         px, py = planning(ox, oy, resolution)
+        # sampling_rate = int(len(px) / 100) + 1
+        # px = px[::sampling_rate]
+        # py = py[::sampling_rate]
         distances.append(get_distance(px, py))
         cks = get_cks_2d(px, py, [3.5,4.5],[6,6])
         ergodic_metrics.append(erg_metric(cks, phiks))
+        ergodic_metrics_2.append(get_erg_metr(px, py))
         plt.subplot(2,4,i+1)
-        plt.plot(px, py)
+        plt.plot(px, py, ".-", linewidth=0.1)
         plt.xlim([0,3.5])
         plt.ylim([0,4.5])
         plt.title(f"Resolution {resolution}")
     plt.tight_layout()
     plt.savefig(str(pathlib.Path(__file__).parent) + "/resolution.png")
 
-    plt.figure(figsize=(10, 20))
-    plt.loglog(ergodic_metrics, distances, 'ok')
+    plt.figure(figsize=(6,6))
+    # plt.loglog(ergodic_metrics, distances, 'ok')
+    plt.loglog(ergodic_metrics_2, distances, 'ob')
     plt.ylabel("Path Distance")
     plt.xlabel("Ergodic Metric")
     plt.title("Lawnomower Trajectories")
@@ -380,6 +414,8 @@ def main():  # pragma: no cover
     print("Ergodicities and Distances:")
     for e, d in zip(ergodic_metrics, distances):
         print(f"{e:.7f}, {d:.4f}")
+    
+    print([e1/e2 for e1, e2 in zip(ergodic_metrics, ergodic_metrics_2)])
     # planning_animation(ox, oy, resolution)
 
     # ox = [0.0, 50.0, 50.0, 0.0, 0.0]
