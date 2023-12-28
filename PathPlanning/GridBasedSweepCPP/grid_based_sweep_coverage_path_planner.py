@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import sys
 import pathlib
 sys.path.append(str(pathlib.Path(__file__).parent.parent.parent))
+import pickle
 
 from utils.angle import rot_mat_2d
 from Mapping.grid_map_lib.grid_map_lib import GridMap, FloatGrid
@@ -184,9 +185,9 @@ def setup_grid_map(ox, oy, resolution, sweep_direction, offset_grid=10):
     center_x = (np.max(ox) + np.min(ox)) / 2.0
     center_y = (np.max(oy) + np.min(oy)) / 2.0
 
-    grid_map = GridMap(width, height, resolution, center_x, center_y)
+    grid_map = GridMap(width, height, resolution, center_x, center_y, init_val=FloatGrid(1.0))
     grid_map.print_grid_map_info()
-    grid_map.set_value_from_polygon(ox, oy, FloatGrid(1.0), inside=False)
+    grid_map.set_value_from_polygon(ox, oy, FloatGrid(0.0), inside=True)
     grid_map.expand_grid()
 
     x_inds_goal_y = []
@@ -382,24 +383,39 @@ def main():  # pragma: no cover
     # print(get_distance(px, py))
     distances = []
     ergodic_metrics = []
+    lens = []
     ergodic_metrics_2 = []
+    trajs = []
     plt.figure(figsize=(20, 10))
-    resolutions = np.array([0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3])
+    # resolutions = np.array([0.005, 0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.3])
+    resolutions = np.array([1/20, 1/17.5, 1/15])
     # resolutions = np.array([0.1, 0.15, 0.2, 0.3])
     for i, resolution in enumerate(resolutions * 3):
         px, py = planning(ox, oy, resolution)
+        trajs.append(np.vstack([px, py]).T)
         # sampling_rate = int(len(px) / 100) + 1
         # px = px[::sampling_rate]
         # py = py[::sampling_rate]
         distances.append(get_distance(px, py))
+        lens.append(len(px))
         cks = get_cks_2d(px, py, [3.5,4.5],[6,6])
         ergodic_metrics.append(erg_metric(cks, phiks))
         ergodic_metrics_2.append(get_erg_metr(px, py))
         plt.subplot(2,4,i+1)
-        plt.plot(px, py, ".-", linewidth=0.1)
+        plt.plot(px, py, ".-", linewidth=0.5)
         plt.xlim([0,3.5])
         plt.ylim([0,4.5])
-        plt.title(f"Resolution {resolution}")
+        plt.gca().set_aspect('equal', 'box')
+        # plt.gca().set_yticks(np.arange(resolution/2,4.5, resolution), minor=True)
+        # plt.gca().set_yticks([], minor=False)
+        # plt.gca().yaxis.grid(True, which='minor', alpha=0.2)
+        # plt.gca().yaxis.grid(True, which='major', alpha=0.2)
+        # plt.gca().set_xticks(np.arange(resolution/2,3.5, resolution), minor=True)
+        # plt.gca().set_xticks([], minor=False)
+        # plt.gca().xaxis.grid(True, which='minor', alpha=0.2)
+        # plt.gca().xaxis.grid(True, which='major', alpha=0.2)
+        # plt.title(f"Resolution {resolution:.3g}")
+        plt.title(f"Distance: {distances[-1]:.3g}\nErgodic Metric: {ergodic_metrics_2[-1]:.7f}")
     plt.tight_layout()
     plt.savefig(str(pathlib.Path(__file__).parent) + "/resolution.png")
 
@@ -412,10 +428,13 @@ def main():  # pragma: no cover
     plt.tight_layout()
     plt.savefig(str(pathlib.Path(__file__).parent) + "/Metrics.png")
     print("Ergodicities and Distances:")
-    for e, d in zip(ergodic_metrics, distances):
-        print(f"{e:.7f}, {d:.4f}")
+    for e, d, l in zip(ergodic_metrics_2, distances, lens):
+        print(f"{e:.7f}, {d:.4f}, {l}")
     
     print([e1/e2 for e1, e2 in zip(ergodic_metrics, ergodic_metrics_2)])
+
+    with open("trajs.pkl", "wb") as handle:
+        pickle.dump(trajs, handle)
     # planning_animation(ox, oy, resolution)
 
     # ox = [0.0, 50.0, 50.0, 0.0, 0.0]
